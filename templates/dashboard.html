@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Recon System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Banner -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="bi bi-speedometer2"></i> Selamat Datang, {{ user.username }}!
+                    </h3>
+                    <p class="card-text">
+                        Anda login sebagai <span class="badge bg-primary">{{ user.role }}</span>
+                    </p>
+                    <p class="card-text text-muted">
+                        <small>Last login: {{ user.created_at.strftime('%d/%m/%Y %H:%M') if user.created_at else 'Baru' }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="stat-card eod">
+                <i class="bi bi-credit-card"></i>
+                <div class="number">{{ total_eod }}</div>
+                <div class="label">Transaksi EOD</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card emerchant">
+                <i class="bi bi-cart-check"></i>
+                <div class="number">{{ total_emerchant }}</div>
+                <div class="label">Transaksi E-Merchant</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card users">
+                <i class="bi bi-upload"></i>
+                <div class="number">{{ recent_uploads|length }}</div>
+                <div class="label">Upload Terkini</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🚀 Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ url_for('upload_eod_page') }}" class="btn btn-primary w-100">
+                                <i class="bi bi-upload"></i> Upload EOD
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="{{ url_for('upload_emerchant') if 'upload_emerchant' in view_functions else '#' }}" 
+                               class="btn btn-success w-100">
+                                <i class="bi bi-cloud-upload"></i> Upload E-Merchant
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="#" class="btn btn-info w-100">
+                                <i class="bi bi-search"></i> View Reports
+                            </a>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <a href="#" class="btn btn-warning w-100">
+                                <i class="bi bi-arrow-left-right"></i> Reconcile
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Uploads -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📤 Recent Uploads</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_uploads %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>File</th>
+                                    <th>Type</th>
+                                    <th>Records</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for upload in recent_uploads %}
+                                <tr>
+                                    <td><small>{{ upload.file_name[:20] }}...</small></td>
+                                    <td><span class="badge bg-{{ 'primary' if upload.file_type == 'eod' else 'success' }}">
+                                        {{ upload.file_type|upper }}
+                                    </span></td>
+                                    <td>{{ upload.record_count }}</td>
+                                    <td><small>{{ upload.upload_date.strftime('%d/%m %H:%M') }}</small></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">No uploads yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent EOD Transactions -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">💳 Recent EOD Transactions</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_eod %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Merchant</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for eod in recent_eod %}
+                                <tr>
+                                    <td><small>{{ eod.merchant_id or 'N/A' }}</small></td>
+                                    <td>RM {{ "%.2f"|format(eod.amount) if eod.amount else '0.00' }}</td>
+                                    <td><small>{{ eod.transaction_date.strftime('%d/%m') if eod.transaction_date else 'N/A' }}</small></td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if eod.status == 'ACTIVE' else 'warning' }}">
+                                            {{ eod.status or 'PENDING' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">No EOD transactions yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

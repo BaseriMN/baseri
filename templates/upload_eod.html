@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Upload EOD Data{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-upload"></i> Upload EOD Transaction Data
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6>📋 File Format Requirements:</h6>
+                        <ul class="mb-0">
+                            <li>Supported formats: CSV, Excel (.xlsx, .xls)</li>
+                            <li>Required columns: <code>transaction_date, amount, merchant_id</code></li>
+                            <li>Optional columns: <code>terminal_id, card_number, response_code, approval_code</code></li>
+                            <li>Date format: YYYY-MM-DD or DD/MM/YYYY</li>
+                            <li>Max file size: 50MB</li>
+                        </ul>
+                    </div>
+                    
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="eodFile" class="form-label">Select EOD File</label>
+                            <input class="form-control" type="file" id="eodFile" name="file" 
+                                   accept=".csv,.xlsx,.xls" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="batchId" class="form-label">Batch ID (Optional)</label>
+                            <input type="text" class="form-control" id="batchId" 
+                                   placeholder="Auto-generated if empty">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Processing Options</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="removeDuplicates" checked>
+                                <label class="form-check-label" for="removeDuplicates">
+                                    Remove duplicate transactions
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="validateData" checked>
+                                <label class="form-check-label" for="validateData">
+                                    Validate data before upload
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-10" id="uploadBtn">
+                            <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner"></span>
+                            Upload & Process EOD Data
+                        </button>
+                    </form>
+                
+                    <div id="uploadResult" class="mt-4 d-none">
+                        <!-- Results will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload History -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Recent EOD Uploads
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>File Name</th>
+                                    <th>Records</th>
+                                    <th>Status</th>
+                                    <th>Batch ID</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="uploadHistory">
+                                <!-- History will be loaded via AJAX -->
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted">
+                                        Loading upload history...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('uploadForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById('eodFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const spinner = document.getElementById('loadingSpinner');
+        
+        if (!fileInput.files[0]) {
+            alert('Please select a file');
+            return;
+        }
+        
+        // Show loading
+        uploadBtn.disabled = true;
+        spinner.classList.remove('d-none');
+        
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
+        
+        // Simulate upload process (replace with actual API call)
+        setTimeout(() => {
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.classList.remove('d-none');
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h5>✅ Upload Successful!</h5>
+                    <p><strong>File:</strong> ${fileInput.files[0].name}</p>
+                    <p><strong>Records Processed:</strong> 125</p>
+                    <p><strong>Status:</strong> Data saved to database</p>
+                    <hr>
+                    <button class="btn btn-sm btn-outline-success" onclick="viewUploadDetails()">
+                        View Details
+                    </button>
+                </div>
+            `;
+            
+            // Reset form
+            document.getElementById('uploadForm').reset();
+            
+            // Enable button
+            uploadBtn.disabled = false;
+            spinner.classList.add('d-none');
+            
+            // Refresh history
+            loadUploadHistory();
+        }, 2000);
+    });
+    
+    function loadUploadHistory() {
+        // Simulate loading history
+        document.getElementById('uploadHistory').innerHTML = `
+            <tr>
+                <td>2024-01-15</td>
+                <td>eod_transactions_20240115.csv</td>
+                <td>125</td>
+                <td><span class="badge bg-success">Completed</span></td>
+                <td>BATCH001</td>
+                <td>
+                    <button class="btn btn-sm btn-info">View</button>
+                </td>
+            </tr>
+            <tr>
+                <td>2024-01-14</td>
+                <td>transactions.xlsx</td>
+                <td>89</td>
+                <td><span class="badge bg-success">Completed</span></td>
+                <td>BATCH002</td>
+                <td>
+                    <button class="btn btn-sm btn-info">View</button>
+                </td>
+            </tr>
+        `;
+    }
+    
+    function viewUploadDetails() {
+        alert('Upload details feature coming soon!');
+    }
+    
+    // Load history on page load
+    document.addEventListener('DOMContentLoaded', loadUploadHistory);
+</script>
+{% endblock %}

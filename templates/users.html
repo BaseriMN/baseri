@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Users List{% endblock %}
+
+{% block content %}
+<div class="card shadow">
+    <div class="card-header bg-info text-white">
+        <h4 class="mb-0">Senarai Users</h4>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Tarikh Daftar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.id }}</td>
+                    <td>{{ user.username }}</td>
+                    <td>{{ user.email }}</td>
+                    <td>{{ user.created_at.strftime('%d-%m-%Y') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+        <a href="/dashboard" class="btn btn-secondary">Kembali ke Dashboard</a>
+    </div>
+</div>
+{% endblock %}

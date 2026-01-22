@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Recon System{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Welcome Banner -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title">
+                        <i class="bi bi-shield-check"></i> Admin Dashboard
+                    </h3>
+                    <p class="card-text">
+                        Anda login sebagai <span class="badge bg-danger">ADMIN</span>
+                    </p>
+                    <p class="text-muted">
+                        <small>Last login: {{ current_time }}</small>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="stat-card users">
+                <i class="bi bi-people"></i>
+                <div class="number">{{ total_users }}</div>
+                <div class="label">Total Users</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card eod">
+                <i class="bi bi-credit-card"></i>
+                <div class="number">{{ total_eod }}</div>
+                <div class="label">Total EOD</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card emerchant">
+                <i class="bi bi-cart-check"></i>
+                <div class="number">{{ total_emerchant }}</div>
+                <div class="label">Total E-Merchant</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                <i class="bi bi-database"></i>
+                <div class="number">{{ total_users + total_eod + total_emerchant }}</div>
+                <div class="label">Total Records</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Actions -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">⚡ Admin Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-2 mb-3">
+                            <a href="/admin/users" class="btn btn-info w-100">
+                                <i class="bi bi-person-lines-fill"></i> Manage Users
+                            </a>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <a href="/admin/backup" class="btn btn-success w-100">
+                                <i class="bi bi-download"></i> Backup DB
+                            </a>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <a href="/admin/logs" class="btn btn-warning w-100">
+                                <i class="bi bi-journal-text"></i> View Logs
+                            </a>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <a href="/admin/settings" class="btn btn-secondary w-100">
+                                <i class="bi bi-gear"></i> Settings
+                            </a>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <a href="/admin/reports" class="btn btn-primary w-100">
+                                <i class="bi bi-bar-chart"></i> Reports
+                            </a>
+                        </div>
+                        <div class="col-md-2 mb-3">
+                            <a href="/admin/cleanup" class="btn btn-danger w-100">
+                                <i class="bi bi-trash"></i> Cleanup
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Users -->
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">👥 Recent Users</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Joined</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td><small>{{ user.email }}</small></td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if user.role == 'admin' else 'primary' }}">
+                                            {{ user.role }}
+                                        </span>
+                                    </td>
+                                    <td><small>{{ user.created_at.strftime('%d/%m/%Y') }}</small></td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if user.is_active else 'secondary' }}">
+                                            {{ 'Active' if user.is_active else 'Inactive' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted">No users yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- System Info -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📊 System Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6>Database</h6>
+                                <p class="mb-1">
+                                    <i class="bi bi-database"></i> PostgreSQL
+                                </p>
+                                <p class="mb-1">
+                                    <i class="bi bi-hdd"></i> Port: 1234
+                                </p>
+                                <p class="mb-1">
+                                    <i class="bi bi-server"></i> recon_db
+                                </p>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <h6>Application</h6>
+                                <p class="mb-1">
+                                    <i class="bi bi-code-slash"></i> Flask
+                                </p>
+                                <p class="mb-1">
+                                    <i class="bi bi-cpu"></i> Python 3.x
+                                </p>
+                                <p class="mb-1">
+                                    <i class="bi bi-globe"></i> Port: 5001
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <h6>Quick Stats</h6>
+                                <div class="list-group">
+                                    <div class="list-group-item d-flex justify-content-between">
+                                        <span>Users Active</span>
+                                        <span class="badge bg-success">{{ total_users_active or 0 }}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between">
+                                        <span>Today's Uploads</span>
+                                        <span class="badge bg-primary">{{ today_uploads or 0 }}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between">
+                                        <span>Pending Recon</span>
+                                        <span class="badge bg-warning">{{ pending_recon or 0 }}</span>
+                                    </div>
+                                    <div class="list-group-item d-flex justify-content-between">
+                                        <span>System Health</span>
+                                        <span class="badge bg-success">Good</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center mt-3">
+                        <button class="btn btn-sm btn-outline-info" onclick="refreshStats()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Stats
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="showSystemLogs()">
+                            <i class="bi bi-terminal"></i> System Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Management -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🗃️ Database Management</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-download display-6 text-primary"></i>
+                                    <h6>Backup Database</h6>
+                                    <p class="text-muted small">Create full backup</p>
+                                    <button class="btn btn-sm btn-primary">Backup Now</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-trash display-6 text-danger"></i>
+                                    <h6>Clean Old Data</h6>
+                                    <p class="text-muted small">Remove old records</p>
+                                    <button class="btn btn-sm btn-danger">Clean Now</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-graph-up display-6 text-success"></i>
+                                    <h6>Performance</h6>
+                                    <p class="text-muted small">Database metrics</p>
+                                    <button class="btn btn-sm btn-success">View Stats</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="card bg-light">
+                                <div class="card-body text-center">
+                                    <i class="bi bi-shield-check display-6 text-warning"></i>
+                                    <h6>Security</h6>
+                                    <p class="text-muted small">Audit logs</p>
+                                    <button class="btn btn-sm btn-warning">Check Logs</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function refreshStats() {
+        alert('Refreshing statistics...');
+        location.reload();
+    }
+    
+    function showSystemLogs() {
+        alert('System logs feature coming soon!');
+    }
+</script>
+
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 20px;
+        border-radius: 10px;
+        color: white;
+        margin-bottom: 20px;
+    }
+    .stat-card.users {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+    .stat-card.eod {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .stat-card.emerchant {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+    .stat-card i {
+        font-size: 2.5rem;
+        margin-bottom: 10px;
+    }
+    .stat-card .number {
+        font-size: 2rem;
+        font-weight: 700;
+    }
+    .stat-card .label {
+        font-size: 0.9rem;
+        opacity: 0.9;
+    }
+</style>
+{% endblock %}

@@ -1,0 +1,1034 @@
+{% extends "base.html" %}
+
+{% block title %}Reconciliation - EOD vs E-Merchant{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header Section -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-arrow-left-right"></i> Transaction Reconciliation
+                    </h4>
+                    <p class="mb-0 mt-2 small">Match EOD transactions with E-Merchant records</p>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="alert alert-info">
+                                <h6><i class="bi bi-info-circle"></i> How Reconciliation Works:</h6>
+                                <ol class="mb-0 small">
+                                    <li>Select date range for reconciliation</li>
+                                    <li>System will match EOD transactions with E-Merchant orders</li>
+                                    <li>Matches are based on amount, date, and merchant ID</li>
+                                    <li>Review and confirm matched transactions</li>
+                                    <li>Export reconciliation report</li>
+                                </ol>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <h6><i class="bi bi-exclamation-triangle"></i> Quick Stats</h6>
+                                <div class="d-flex justify-content-between">
+                                    <span>Pending Recon:</span>
+                                    <span class="badge bg-warning" id="pendingCount">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Today's Matches:</span>
+                                    <span class="badge bg-success" id="todayMatches">0</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span>Discrepancies:</span>
+                                    <span class="badge bg-danger" id="discrepancyCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-sliders"></i> Reconciliation Controls
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="reconcileForm">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="startDate" class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" id="startDate" 
+                                           value="{{ today_minus_7 }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="endDate" class="form-label">End Date</label>
+                                    <input type="date" class="form-control" id="endDate" 
+                                           value="{{ today }}">
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="merchantFilter" class="form-label">Merchant</label>
+                                    <select class="form-select" id="merchantFilter">
+                                        <option value="">All Merchants</option>
+                                        <option value="shopee">Shopee</option>
+                                        <option value="lazada">Lazada</option>
+                                        <option value="tokopedia">Tokopedia</option>
+                                        <option value="grab">Grab</option>
+                                        <option value="boost">Boost</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="mb-3">
+                                    <label for="matchThreshold" class="form-label">Match Threshold</label>
+                                    <div class="input-group">
+                                        <input type="range" class="form-range" id="matchThreshold" 
+                                               min="80" max="100" step="5" value="95">
+                                        <span class="input-group-text" id="thresholdValue">95%</span>
+                                    </div>
+                                    <div class="form-text">Minimum match confidence</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Match Criteria</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="matchAmount" checked>
+                                        <label class="form-check-label" for="matchAmount">
+                                            Match by Amount (± RM 0.10)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="matchDate" checked>
+                                        <label class="form-check-label" for="matchDate">
+                                            Match by Date (± 1 day)
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="matchMerchant">
+                                        <label class="form-check-label" for="matchMerchant">
+                                            Match by Merchant ID
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Auto-Match Options</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="autoMatchExact" checked>
+                                        <label class="form-check-label" for="autoMatchExact">
+                                            Auto-match exact amounts
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="autoMatchPartial">
+                                        <label class="form-check-label" for="autoMatchPartial">
+                                            Auto-match partial amounts
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="flagDiscrepancies" checked>
+                                        <label class="form-check-label" for="flagDiscrepancies">
+                                            Flag discrepancies
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">Actions</label>
+                                    <div class="d-grid gap-2">
+                                        <button type="button" class="btn btn-primary" id="runReconcileBtn">
+                                            <i class="bi bi-play-circle"></i> Run Reconciliation
+                                        </button>
+                                        <button type="button" class="btn btn-success" id="exportReportBtn">
+                                            <i class="bi bi-download"></i> Export Report
+                                        </button>
+                                        <button type="button" class="btn btn-warning" id="clearMatchesBtn">
+                                            <i class="bi bi-x-circle"></i> Clear All Matches
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reconciliation Results -->
+    <div class="row">
+        <!-- Left Panel - Matched Transactions -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-circle text-success"></i> Matched Transactions
+                        <span class="badge bg-success float-end" id="matchedCount">0</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>EOD Transaction</th>
+                                    <th>E-Merchant Order</th>
+                                    <th>Amount</th>
+                                    <th>Date</th>
+                                    <th>Confidence</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="matchedTable">
+                                <!-- Matched transactions will appear here -->
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="bi bi-arrow-left-right display-6"></i>
+                                        <p class="mt-2">No matched transactions yet</p>
+                                        <small>Run reconciliation to see matches</small>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Unmatched EOD Transactions -->
+            <div class="card mt-4">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle"></i> Unmatched EOD Transactions
+                        <span class="badge bg-warning float-end" id="unmatchedEodCount">0</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Date</th>
+                                    <th>Merchant ID</th>
+                                    <th>Amount</th>
+                                    <th>Card Number</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="unmatchedEodTable">
+                                <!-- Unmatched EOD transactions -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Panel - Statistics & Charts -->
+        <div class="col-md-4">
+            <!-- Summary Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up"></i> Reconciliation Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="reconciliation-summary">
+                        <div class="summary-item d-flex justify-content-between mb-2">
+                            <span>Total EOD Transactions:</span>
+                            <span class="badge bg-secondary" id="totalEod">0</span>
+                        </div>
+                        <div class="summary-item d-flex justify-content-between mb-2">
+                            <span>Total E-Merchant Orders:</span>
+                            <span class="badge bg-secondary" id="totalEmerchant">0</span>
+                        </div>
+                        <div class="summary-item d-flex justify-content-between mb-2">
+                            <span>Successfully Matched:</span>
+                            <span class="badge bg-success" id="successMatches">0</span>
+                        </div>
+                        <div class="summary-item d-flex justify-content-between mb-2">
+                            <span>Partial Matches:</span>
+                            <span class="badge bg-warning" id="partialMatches">0</span>
+                        </div>
+                        <div class="summary-item d-flex justify-content-between mb-2">
+                            <span>Unmatched EOD:</span>
+                            <span class="badge bg-danger" id="unmatchedCount">0</span>
+                        </div>
+                        <div class="summary-item d-flex justify-content-between mb-3">
+                            <span>Unmatched E-Merchant:</span>
+                            <span class="badge bg-danger" id="unmatchedEmerchantCount">0</span>
+                        </div>
+                        
+                        <div class="progress mb-3" style="height: 20px;">
+                            <div class="progress-bar bg-success" role="progressbar" style="width: 0%" id="matchProgress">
+                                0%
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <button class="btn btn-sm btn-outline-info" id="refreshStatsBtn">
+                                <i class="bi bi-arrow-clockwise"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Match Distribution Chart -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-pie-chart"></i> Match Distribution
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="matchChart">
+                        <!-- Simple chart visualization -->
+                        <div class="text-center">
+                            <canvas id="matchChartCanvas" width="200" height="200" style="max-width: 100%;"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" id="findMatchesBtn">
+                            <i class="bi bi-search"></i> Find Potential Matches
+                        </button>
+                        <button class="btn btn-outline-success" id="autoMatchBtn">
+                            <i class="bi bi-robot"></i> Auto-Match All
+                        </button>
+                        <button class="btn btn-outline-danger" id="flagAllBtn">
+                            <i class="bi bi-flag"></i> Flag All Unmatched
+                        </button>
+                        <button class="btn btn-outline-info" id="viewReportBtn">
+                            <i class="bi bi-file-earmark-text"></i> View Detailed Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Unmatched E-Merchant Orders (Collapsible) -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-danger text-white" data-bs-toggle="collapse" href="#unmatchedEmerchantCollapse" style="cursor: pointer;">
+                    <h5 class="mb-0">
+                        <i class="bi bi-cart-x"></i> Unmatched E-Merchant Orders
+                        <span class="badge bg-light text-danger float-end" id="unmatchedEmerchantBadge">0</span>
+                    </h5>
+                </div>
+                <div class="collapse" id="unmatchedEmerchantCollapse">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Order ID</th>
+                                        <th>Merchant</th>
+                                        <th>Amount</th>
+                                        <th>Date</th>
+                                        <th>Customer Email</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="unmatchedEmerchantTable">
+                                    <!-- Unmatched E-Merchant orders -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Manual Match -->
+<div class="modal fade" id="manualMatchModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-link"></i> Manual Transaction Match
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>EOD Transaction</h6>
+                        <div class="card">
+                            <div class="card-body" id="eodTransactionDetails">
+                                <!-- EOD details will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>E-Merchant Order</h6>
+                        <div class="card">
+                            <div class="card-body" id="emerchantOrderDetails">
+                                <!-- E-Merchant details will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Match Details</h6>
+                    <div class="mb-3">
+                        <label for="matchNotes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="matchNotes" rows="2" placeholder="Add notes about this match..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="matchConfidence" class="form-label">Confidence Level</label>
+                        <select class="form-select" id="matchConfidence">
+                            <option value="100">100% - Perfect Match</option>
+                            <option value="90">90% - Strong Match</option>
+                            <option value="80">80% - Good Match</option>
+                            <option value="70">70% - Partial Match</option>
+                            <option value="60">60% - Weak Match</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirmMatchBtn">Confirm Match</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for Transaction Details -->
+<div class="modal fade" id="transactionDetailModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Transaction Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="transactionDetailContent">
+                <!-- Details will be loaded here -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global variables
+    let reconciliationData = {
+        matched: [],
+        unmatchedEod: [],
+        unmatchedEmerchant: []
+    };
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set default dates
+        const today = new Date();
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(today.getDate() - 7);
+        
+        document.getElementById('startDate').value = formatDate(sevenDaysAgo);
+        document.getElementById('endDate').value = formatDate(today);
+        
+        // Update threshold display
+        const thresholdSlider = document.getElementById('matchThreshold');
+        const thresholdValue = document.getElementById('thresholdValue');
+        
+        thresholdSlider.addEventListener('input', function() {
+            thresholdValue.textContent = this.value + '%';
+        });
+        
+        // Load initial stats
+        loadReconciliationStats();
+        
+        // Event listeners
+        document.getElementById('runReconcileBtn').addEventListener('click', runReconciliation);
+        document.getElementById('refreshStatsBtn').addEventListener('click', loadReconciliationStats);
+        document.getElementById('findMatchesBtn').addEventListener('click', findPotentialMatches);
+        document.getElementById('autoMatchBtn').addEventListener('click', autoMatchAll);
+        document.getElementById('exportReportBtn').addEventListener('click', exportReport);
+        document.getElementById('clearMatchesBtn').addEventListener('click', clearAllMatches);
+        document.getElementById('flagAllBtn').addEventListener('click', flagAllUnmatched);
+        document.getElementById('viewReportBtn').addEventListener('click', viewDetailedReport);
+        document.getElementById('confirmMatchBtn').addEventListener('click', confirmManualMatch);
+    });
+    
+    // Format date as YYYY-MM-DD
+    function formatDate(date) {
+        return date.toISOString().split('T')[0];
+    }
+    
+    // Load reconciliation statistics
+    async function loadReconciliationStats() {
+        try {
+            const response = await fetch('/api/reconcile/stats');
+            const stats = await response.json();
+            
+            // Update counts
+            document.getElementById('pendingCount').textContent = stats.pending || 0;
+            document.getElementById('todayMatches').textContent = stats.today_matches || 0;
+            document.getElementById('discrepancyCount').textContent = stats.discrepancies || 0;
+            
+            document.getElementById('totalEod').textContent = stats.total_eod || 0;
+            document.getElementById('totalEmerchant').textContent = stats.total_emerchant || 0;
+            document.getElementById('successMatches').textContent = stats.matched || 0;
+            document.getElementById('partialMatches').textContent = stats.partial_matches || 0;
+            document.getElementById('unmatchedCount').textContent = stats.unmatched_eod || 0;
+            document.getElementById('unmatchedEmerchantCount').textContent = stats.unmatched_emerchant || 0;
+            
+            // Update progress bar
+            const total = stats.total_eod || 1;
+            const matched = stats.matched || 0;
+            const percentage = Math.round((matched / total) * 100);
+            
+            const progressBar = document.getElementById('matchProgress');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '%';
+            
+            // Update chart
+            updateMatchChart(stats);
+            
+        } catch (error) {
+            console.error('Error loading stats:', error);
+            showAlert('Failed to load statistics', 'danger');
+        }
+    }
+    
+    // Run reconciliation
+    async function runReconciliation() {
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+        const merchantFilter = document.getElementById('merchantFilter').value;
+        const threshold = document.getElementById('matchThreshold').value;
+        
+        // Validate dates
+        if (!startDate || !endDate) {
+            showAlert('Please select both start and end dates', 'warning');
+            return;
+        }
+        
+        if (new Date(startDate) > new Date(endDate)) {
+            showAlert('Start date cannot be after end date', 'warning');
+            return;
+        }
+        
+        // Show loading
+        const runBtn = document.getElementById('runReconcileBtn');
+        const originalText = runBtn.innerHTML;
+        runBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+        runBtn.disabled = true;
+        
+        try {
+            // Get match criteria
+            const criteria = {
+                matchAmount: document.getElementById('matchAmount').checked,
+                matchDate: document.getElementById('matchDate').checked,
+                matchMerchant: document.getElementById('matchMerchant').checked,
+                autoMatchExact: document.getElementById('autoMatchExact').checked,
+                autoMatchPartial: document.getElementById('autoMatchPartial').checked
+            };
+            
+            const response = await fetch('/api/reconcile/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    start_date: startDate,
+                    end_date: endDate,
+                    merchant_filter: merchantFilter,
+                    threshold: parseInt(threshold),
+                    criteria: criteria
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok && result.success) {
+                showAlert('Reconciliation completed successfully!', 'success');
+                
+                // Update UI with results
+                reconciliationData = result.data || {
+                    matched: [],
+                    unmatchedEod: [],
+                    unmatchedEmerchant: []
+                };
+                
+                updateMatchedTable();
+                updateUnmatchedTables();
+                loadReconciliationStats();
+                
+            } else {
+                showAlert(result.error || 'Reconciliation failed', 'danger');
+            }
+            
+        } catch (error) {
+            console.error('Error running reconciliation:', error);
+            showAlert('Network error: ' + error.message, 'danger');
+        } finally {
+            // Reset button
+            runBtn.innerHTML = originalText;
+            runBtn.disabled = false;
+        }
+    }
+    
+    // Update matched transactions table
+    function updateMatchedTable() {
+        const tableBody = document.getElementById('matchedTable');
+        const matchedCount = document.getElementById('matchedCount');
+        
+        if (!reconciliationData.matched || reconciliationData.matched.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="bi bi-arrow-left-right display-6"></i>
+                        <p class="mt-2">No matched transactions yet</p>
+                        <small>Run reconciliation to see matches</small>
+                    </td>
+                </tr>
+            `;
+            matchedCount.textContent = '0';
+            return;
+        }
+        
+        let html = '';
+        reconciliationData.matched.forEach((match, index) => {
+            const confidenceClass = match.confidence >= 90 ? 'bg-success' : 
+                                   match.confidence >= 80 ? 'bg-warning' : 'bg-secondary';
+            
+            html += `
+                <tr>
+                    <td>${index + 1}</td>
+                    <td>
+                        <small>${match.eod_merchant_id || 'N/A'}</small><br>
+                        <small class="text-muted">${match.eod_transaction_date || ''}</small>
+                    </td>
+                    <td>
+                        <small>${match.emerchant_order_id || 'N/A'}</small><br>
+                        <small class="text-muted">${match.emerchant_merchant_code || ''}</small>
+                    </td>
+                    <td>
+                        <strong>RM ${parseFloat(match.eod_amount || 0).toFixed(2)}</strong><br>
+                        <small class="text-muted">RM ${parseFloat(match.emerchant_amount || 0).toFixed(2)}</small>
+                    </td>
+                    <td>
+                        <small>${match.eod_date || ''}</small><br>
+                        <small class="text-muted">${match.emerchant_date || ''}</small>
+                    </td>
+                    <td>
+                        <span class="badge ${confidenceClass}">${match.confidence || 0}%</span>
+                    </td>
+                    <td>
+                        <span class="badge bg-${match.status === 'confirmed' ? 'success' : 'warning'}">
+                            ${match.status || 'pending'}
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-outline-info" onclick="viewMatchDetails(${index})">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="unmatchTransaction(${index})">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tableBody.innerHTML = html;
+        matchedCount.textContent = reconciliationData.matched.length;
+    }
+    
+    // Update unmatched tables
+    function updateUnmatchedTables() {
+        // Update EOD unmatched
+        const unmatchedEodTable = document.getElementById('unmatchedEodTable');
+        const unmatchedEodCount = document.getElementById('unmatchedEodCount');
+        
+        if (!reconciliationData.unmatchedEod || reconciliationData.unmatchedEod.length === 0) {
+            unmatchedEodTable.innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-3">
+                        No unmatched EOD transactions
+                    </td>
+                </tr>
+            `;
+            unmatchedEodCount.textContent = '0';
+        } else {
+            let html = '';
+            reconciliationData.unmatchedEod.forEach((transaction, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td>${transaction.transaction_date || 'N/A'}</td>
+                        <td><small>${transaction.merchant_id || 'N/A'}</small></td>
+                        <td><strong>RM ${parseFloat(transaction.amount || 0).toFixed(2)}</strong></td>
+                        <td><small>${(transaction.card_number || '').substring(0, 4)}****</small></td>
+                        <td><span class="badge bg-danger">Unmatched</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="manualMatchEod(${index})">
+                                <i class="bi bi-link"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            unmatchedEodTable.innerHTML = html;
+            unmatchedEodCount.textContent = reconciliationData.unmatchedEod.length;
+        }
+        
+        // Update E-Merchant unmatched
+        const unmatchedEmerchantTable = document.getElementById('unmatchedEmerchantTable');
+        const unmatchedEmerchantBadge = document.getElementById('unmatchedEmerchantBadge');
+        
+        if (!reconciliationData.unmatchedEmerchant || reconciliationData.unmatchedEmerchant.length === 0) {
+            unmatchedEmerchantTable.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-3">
+                        No unmatched E-Merchant orders
+                    </td>
+                </tr>
+            `;
+            unmatchedEmerchantBadge.textContent = '0';
+        } else {
+            let html = '';
+            reconciliationData.unmatchedEmerchant.forEach((order, index) => {
+                html += `
+                    <tr>
+                        <td>${index + 1}</td>
+                        <td><small>${order.order_id || 'N/A'}</small></td>
+                        <td><span class="badge bg-info">${order.merchant_code || 'N/A'}</span></td>
+                        <td><strong>RM ${parseFloat(order.amount || 0).toFixed(2)}</strong></td>
+                        <td>${order.transaction_date || 'N/A'}</td>
+                        <td><small>${(order.customer_email || '').split('@')[0]}...</small></td>
+                        <td><span class="badge bg-danger">Unmatched</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="manualMatchEmerchant(${index})">
+                                <i class="bi bi-link"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            unmatchedEmerchantTable.innerHTML = html;
+            unmatchedEmerchantBadge.textContent = reconciliationData.unmatchedEmerchant.length;
+        }
+    }
+    
+    // Update match chart
+    function updateMatchChart(stats) {
+        const canvas = document.getElementById('matchChartCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Clear previous chart
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw simple pie chart
+        const total = stats.total_eod || 1;
+        const matched = stats.matched || 0;
+        const unmatched = stats.unmatched_eod || 0;
+        
+        // Draw pie chart
+        let startAngle = 0;
+        
+        // Matched portion
+        const matchedAngle = (matched / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(100, 100);
+        ctx.arc(100, 100, 80, startAngle, startAngle + matchedAngle);
+        ctx.closePath();
+        ctx.fillStyle = '#28a745';
+        ctx.fill();
+        startAngle += matchedAngle;
+        
+        // Unmatched portion
+        const unmatchedAngle = (unmatched / total) * 2 * Math.PI;
+        ctx.beginPath();
+        ctx.moveTo(100, 100);
+        ctx.arc(100, 100, 80, startAngle, startAngle + unmatchedAngle);
+        ctx.closePath();
+        ctx.fillStyle = '#dc3545';
+        ctx.fill();
+        
+        // Draw center circle
+        ctx.beginPath();
+        ctx.arc(100, 100, 40, 0, 2 * Math.PI);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        
+        // Add text
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${Math.round((matched/total)*100)}%`, 100, 100);
+        
+        ctx.font = '12px Arial';
+        ctx.fillText('Matched', 100, 120);
+    }
+    
+    // Manual match functions
+    function manualMatchEod(index) {
+        const transaction = reconciliationData.unmatchedEod[index];
+        showManualMatchModal(transaction, null, 'eod');
+    }
+    
+    function manualMatchEmerchant(index) {
+        const order = reconciliationData.unmatchedEmerchant[index];
+        showManualMatchModal(null, order, 'emerchant');
+    }
+    
+    function showManualMatchModal(eodTransaction, emerchantOrder, type) {
+        // Populate EOD details
+        let eodHtml = '';
+        if (eodTransaction) {
+            eodHtml = `
+                <p><strong>Merchant ID:</strong> ${eodTransaction.merchant_id || 'N/A'}</p>
+                <p><strong>Date:</strong> ${eodTransaction.transaction_date || 'N/A'}</p>
+                <p><strong>Amount:</strong> RM ${parseFloat(eodTransaction.amount || 0).toFixed(2)}</p>
+                <p><strong>Terminal:</strong> ${eodTransaction.terminal_id || 'N/A'}</p>
+                <p><strong>Card:</strong> ${(eodTransaction.card_number || '').substring(0, 4)}****</p>
+            `;
+        } else {
+            eodHtml = '<p class="text-muted">Select EOD transaction to match</p>';
+        }
+        
+        // Populate E-Merchant details
+        let emerchantHtml = '';
+        if (emerchantOrder) {
+            emerchantHtml = `
+                <p><strong>Order ID:</strong> ${emerchantOrder.order_id || 'N/A'}</p>
+                <p><strong>Merchant:</strong> ${emerchantOrder.merchant_code || 'N/A'}</p>
+                <p><strong>Date:</strong> ${emerchantOrder.transaction_date || 'N/A'}</p>
+                <p><strong>Amount:</strong> RM ${parseFloat(emerchantOrder.amount || 0).toFixed(2)}</p>
+                <p><strong>Payment:</strong> ${emerchantOrder.payment_method || 'N/A'}</p>
+            `;
+        } else {
+            emerchantHtml = '<p class="text-muted">Select E-Merchant order to match</p>';
+        }
+        
+        document.getElementById('eodTransactionDetails').innerHTML = eodHtml;
+        document.getElementById('emerchantOrderDetails').innerHTML = emerchantHtml;
+        
+        // Store match data
+        window.currentMatch = {
+            eodIndex: eodTransaction ? reconciliationData.unmatchedEod.findIndex(t => 
+                t.id === eodTransaction.id || t.amount === eodTransaction.amount) : null,
+            emerchantIndex: emerchantOrder ? reconciliationData.unmatchedEmerchant.findIndex(o => 
+                o.id === emerchantOrder.id || o.order_id === emerchantOrder.order_id) : null,
+            type: type
+        };
+        
+        // Show modal
+        const modal = new bootstrap.Modal(document.getElementById('manualMatchModal'));
+        modal.show();
+    }
+    
+    function confirmManualMatch() {
+        // In a real app, you would send this to the server
+        showAlert('Match confirmed successfully!', 'success');
+        
+        // Update local data (simulated)
+        if (window.currentMatch) {
+            // Remove from unmatched arrays and add to matched
+            // This is simplified - in reality, you'd make an API call
+            
+            // Update UI
+            updateUnmatchedTables();
+            loadReconciliationStats();
+        }
+        
+        // Hide modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('manualMatchModal'));
+        modal.hide();
+    }
+    
+    // Utility functions
+    async function findPotentialMatches() {
+        showAlert('Finding potential matches...', 'info');
+        // Implement match finding logic
+    }
+    
+    async function autoMatchAll() {
+        if (confirm('Auto-match all transactions with high confidence?')) {
+            showAlert('Auto-matching transactions...', 'info');
+            // Implement auto-match logic
+        }
+    }
+    
+    async function exportReport() {
+        showAlert('Exporting reconciliation report...', 'info');
+        // Implement export logic
+    }
+    
+    async function clearAllMatches() {
+        if (confirm('Clear all matches? This cannot be undone.')) {
+            showAlert('Clearing all matches...', 'warning');
+            // Implement clear logic
+        }
+    }
+    
+    async function flagAllUnmatched() {
+        if (confirm('Flag all unmatched transactions for review?')) {
+            showAlert('Flagging unmatched transactions...', 'info');
+            // Implement flag logic
+        }
+    }
+    
+    async function viewDetailedReport() {
+        showAlert('Opening detailed report...', 'info');
+        // Implement report viewing logic
+    }
+    
+    function viewMatchDetails(index) {
+        const match = reconciliationData.matched[index];
+        const content = `
+            <h6>Match Details</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>EOD Transaction:</strong></p>
+                    <ul class="small">
+                        <li>Merchant ID: ${match.eod_merchant_id || 'N/A'}</li>
+                        <li>Amount: RM ${parseFloat(match.eod_amount || 0).toFixed(2)}</li>
+                        <li>Date: ${match.eod_date || 'N/A'}</li>
+                        <li>Terminal: ${match.eod_terminal_id || 'N/A'}</li>
+                    </ul>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>E-Merchant Order:</strong></p>
+                    <ul class="small">
+                        <li>Order ID: ${match.emerchant_order_id || 'N/A'}</li>
+                        <li>Merchant: ${match.emerchant_merchant_code || 'N/A'}</li>
+                        <li>Amount: RM ${parseFloat(match.emerchant_amount || 0).toFixed(2)}</li>
+                        <li>Date: ${match.emerchant_date || 'N/A'}</li>
+                    </ul>
+                </div>
+            </div>
+            <hr>
+            <p><strong>Match Confidence:</strong> ${match.confidence || 0}%</p>
+            <p><strong>Status:</strong> ${match.status || 'pending'}</p>
+            <p><strong>Matched On:</strong> ${match.matched_date || 'N/A'}</p>
+        `;
+        
+        document.getElementById('transactionDetailContent').innerHTML = content;
+        const modal = new bootstrap.Modal(document.getElementById('transactionDetailModal'));
+        modal.show();
+    }
+    
+    async function unmatchTransaction(index) {
+        if (confirm('Unmatch this transaction?')) {
+            // Remove from matched array
+            reconciliationData.matched.splice(index, 1);
+            
+            // Update UI
+            updateMatchedTable();
+            loadReconciliationStats();
+            
+            showAlert('Transaction unmatched', 'success');
+        }
+    }
+    
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+        alertDiv.style.cssText = 'top: 20px; right: 20px; z-index: 1050; max-width: 400px;';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        
+        document.body.appendChild(alertDiv);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+</script>
+
+<style>
+    .table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+        white-space: nowrap;
+    }
+    
+    .table td {
+        vertical-align: middle;
+    }
+    
+    .badge {
+        font-size: 0.8em;
+        padding: 0.3em 0.6em;
+    }
+    
+    .summary-item {
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+    }
+    
+    .summary-item:last-child {
+        border-bottom: none;
+    }
+    
+    .card-header[data-bs-toggle="collapse"] {
+        cursor: pointer;
+    }
+    
+    .card-header[data-bs-toggle="collapse"]:hover {
+        opacity: 0.9;
+    }
+    
+    .progress {
+        background-color: #e9ecef;
+    }
+    
+    .progress-bar {
+        transition: width 0.6s ease;
+    }
+    
+    .modal-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+</style>
+{% endblock %}

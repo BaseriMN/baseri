@@ -1,0 +1,486 @@
+{% extends "base.html" %}
+
+{% block title %}Upload E-Merchant Data{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-cart-check"></i> Upload E-Merchant Transaction Data
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <h6>📋 File Format Requirements:</h6>
+                        <ul class="mb-0">
+                            <li>Supported formats: CSV, Excel (.xlsx, .xls)</li>
+                            <li>Required columns: <code>transaction_date, amount, order_id, merchant_code</code></li>
+                            <li>Optional columns: <code>store_id, payment_method, fee, net_amount, customer_email, status, settlement_date</code></li>
+                            <li>Date format: YYYY-MM-DD or DD/MM/YYYY</li>
+                            <li>Max file size: 50MB</li>
+                        </ul>
+                    </div>
+                    
+                    <form id="uploadForm" enctype="multipart/form-data" action="/api/upload/emerchant" method="POST">
+                        <div class="mb-3">
+                            <label for="emerchantFile" class="form-label">Select E-Merchant File</label>
+                            <input class="form-control" type="file" id="emerchantFile" name="file" 
+                                   accept=".csv,.xlsx,.xls" required>
+                            <div class="form-text">Pilih file transaksi e-merchant</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="merchantType" class="form-label">Merchant Type</label>
+                            <select class="form-select" id="merchantType" name="merchant_type">
+                                <option value="shopee">Shopee</option>
+                                <option value="lazada">Lazada</option>
+                                <option value="tokopedia">Tokopedia</option>
+                                <option value="grabpay">GrabPay</option>
+                                <option value="boost">Boost</option>
+                                <option value="tng">Touch 'n Go</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="batchId" class="form-label">Batch ID (Optional)</label>
+                            <input type="text" class="form-control" id="batchId" name="batch_id"
+                                   placeholder="Auto-generated if empty">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Processing Options</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="removeDuplicates" name="remove_duplicates" checked>
+                                <label class="form-check-label" for="removeDuplicates">
+                                    Remove duplicate orders
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="validateData" name="validate_data" checked>
+                                <label class="form-check-label" for="validateData">
+                                    Validate data before upload
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="calculateFees" name="calculate_fees">
+                                <label class="form-check-label" for="calculateFees">
+                                    Auto-calculate fees if missing
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Data Mapping (Optional)</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label for="dateColumn" class="form-label small">Date Column Name</label>
+                                    <input type="text" class="form-control form-control-sm" id="dateColumn" 
+                                           placeholder="e.g., transaction_date, date">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="amountColumn" class="form-label small">Amount Column Name</label>
+                                    <input type="text" class="form-control form-control-sm" id="amountColumn" 
+                                           placeholder="e.g., amount, total">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success w-100" id="uploadBtn">
+                            <span class="spinner-border spinner-border-sm d-none" id="loadingSpinner"></span>
+                            <i class="bi bi-cloud-upload"></i> Upload & Process E-Merchant Data
+                        </button>
+                    </form>
+                    
+                    <div id="uploadResult" class="mt-4 d-none">
+                        <!-- Results will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Upload History -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clock-history"></i> Recent E-Merchant Uploads
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>File Name</th>
+                                    <th>Merchant</th>
+                                    <th>Records</th>
+                                    <th>Total Amount</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="uploadHistory">
+                                <!-- History will be loaded via AJAX -->
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted">
+                                        Loading upload history...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistics Panel -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-graph-up"></i> E-Merchant Statistics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Today's Summary</h6>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Transactions:</span>
+                            <span class="badge bg-primary" id="todayCount">0</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Total Amount:</span>
+                            <span class="badge bg-success" id="todayAmount">RM 0.00</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>Average Fee:</span>
+                            <span class="badge bg-warning" id="todayFee">0%</span>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="mb-3">
+                        <h6>Merchant Distribution</h6>
+                        <div id="merchantChart">
+                            <!-- Simple chart will be inserted here -->
+                            <div class="text-center text-muted small">
+                                <i class="bi bi-pie-chart"></i><br>
+                                Chart will appear after upload
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-center">
+                        <button class="btn btn-sm btn-outline-primary" onclick="refreshStats()">
+                            <i class="bi bi-arrow-clockwise"></i> Refresh Stats
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Handle form submission
+    document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const fileInput = document.getElementById('emerchantFile');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const spinner = document.getElementById('loadingSpinner');
+        const resultDiv = document.getElementById('uploadResult');
+        
+        if (!fileInput.files[0]) {
+            showAlert('Please select a file', 'warning');
+            return;
+        }
+        
+        // Validate file type
+        const fileName = fileInput.files[0].name.toLowerCase();
+        if (!fileName.endsWith('.csv') && !fileName.endsWith('.xlsx') && !fileName.endsWith('.xls')) {
+            showAlert('Only CSV and Excel files are allowed', 'danger');
+            return;
+        }
+        
+        // Show loading
+        uploadBtn.disabled = true;
+        spinner.classList.remove('d-none');
+        uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Processing...';
+        
+        // Create FormData
+        const formData = new FormData(this);
+        
+        try {
+            // Send to server
+            const response = await fetch('/api/upload/emerchant', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            // Show result
+            resultDiv.classList.remove('d-none');
+            
+            if (response.ok && result.success) {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle"></i> Upload Successful!</h5>
+                        <p><strong>File:</strong> ${fileInput.files[0].name}</p>
+                        <p><strong>Records Processed:</strong> ${result.records_processed || result.records_saved}</p>
+                        <p><strong>Total Amount:</strong> RM ${result.total_amount ? parseFloat(result.total_amount).toFixed(2) : '0.00'}</p>
+                        <p><strong>Merchant Type:</strong> ${document.getElementById('merchantType').value.toUpperCase()}</p>
+                        <hr>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small><strong>Valid Records:</strong> ${result.valid_records || result.records_saved}</small>
+                            </div>
+                            <div class="col-md-6">
+                                <small><strong>Skipped:</strong> ${result.skipped_records || 0}</small>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-outline-success me-2" onclick="viewUploadDetails('${result.batch_id}')">
+                                <i class="bi bi-eye"></i> View Details
+                            </button>
+                            <button class="btn btn-sm btn-outline-primary" onclick="downloadReport('${result.batch_id}')">
+                                <i class="bi bi-download"></i> Download Report
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Reset form
+                this.reset();
+                
+                // Refresh history and stats
+                loadUploadHistory();
+                refreshStats();
+                
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h5><i class="bi bi-x-circle"></i> Upload Failed!</h5>
+                        <p><strong>Error:</strong> ${result.error || result.message || 'Unknown error occurred'}</p>
+                        ${result.details ? `<p><small>${result.details}</small></p>` : ''}
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-x-circle"></i> Network Error!</h5>
+                    <p>${error.message}</p>
+                    <p class="small">Please check your connection and try again.</p>
+                </div>
+            `;
+        } finally {
+            // Reset button
+            uploadBtn.disabled = false;
+            spinner.classList.add('d-none');
+            uploadBtn.innerHTML = '<i class="bi bi-cloud-upload"></i> Upload & Process E-Merchant Data';
+        }
+    });
+    
+    // Load upload history
+    async function loadUploadHistory() {
+        try {
+            const response = await fetch('/api/emerchant/uploads');
+            const data = await response.json();
+            
+            const tbody = document.getElementById('uploadHistory');
+            
+            if (data.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-muted">
+                            <i class="bi bi-inbox"></i><br>
+                            No uploads yet
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            data.forEach(upload => {
+                html += `
+                    <tr>
+                        <td>${upload.upload_date || 'N/A'}</td>
+                        <td><small>${upload.file_name ? upload.file_name.substring(0, 20) + (upload.file_name.length > 20 ? '...' : '') : 'N/A'}</small></td>
+                        <td><span class="badge bg-info">${upload.merchant_type || 'N/A'}</span></td>
+                        <td>${upload.record_count || 0}</td>
+                        <td>RM ${upload.total_amount ? parseFloat(upload.total_amount).toFixed(2) : '0.00'}</td>
+                        <td>
+                            <span class="badge bg-${upload.status === 'completed' ? 'success' : upload.status === 'processing' ? 'warning' : 'secondary'}">
+                                ${upload.status || 'unknown'}
+                            </span>
+                        </td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-info" onclick="viewUpload('${upload.id || upload.batch_id}')">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteUpload('${upload.id || upload.batch_id}')">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+            
+        } catch (error) {
+            console.error('Error loading history:', error);
+            document.getElementById('uploadHistory').innerHTML = `
+                <tr>
+                    <td colspan="7" class="text-center text-danger">
+                        <i class="bi bi-exclamation-triangle"></i><br>
+                        Failed to load history
+                    </td>
+                </tr>
+            `;
+        }
+    }
+    
+    // Load statistics
+    async function refreshStats() {
+        try {
+            const response = await fetch('/api/emerchant/stats');
+            const stats = await response.json();
+            
+            // Update today's stats
+            document.getElementById('todayCount').textContent = stats.today_count || 0;
+            document.getElementById('todayAmount').textContent = `RM ${stats.today_amount ? parseFloat(stats.today_amount).toFixed(2) : '0.00'}`;
+            document.getElementById('todayFee').textContent = stats.average_fee ? `${parseFloat(stats.average_fee).toFixed(2)}%` : '0%';
+            
+            // Update merchant distribution chart
+            updateMerchantChart(stats.merchant_distribution);
+            
+        } catch (error) {
+            console.error('Error loading stats:', error);
+        }
+    }
+    
+    // Simple merchant chart
+    function updateMerchantChart(distribution) {
+        const chartDiv = document.getElementById('merchantChart');
+        
+        if (!distribution || Object.keys(distribution).length === 0) {
+            chartDiv.innerHTML = `
+                <div class="text-center text-muted small">
+                    <i class="bi bi-pie-chart"></i><br>
+                    No data available
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="merchant-distribution">';
+        Object.entries(distribution).forEach(([merchant, count]) => {
+            const percentage = (count / Object.values(distribution).reduce((a, b) => a + b, 0) * 100).toFixed(1);
+            html += `
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <span class="small">${merchant}</span>
+                    <div>
+                        <span class="badge bg-secondary me-2">${count}</span>
+                        <span class="text-muted small">${percentage}%</span>
+                    </div>
+                </div>
+                <div class="progress mb-2" style="height: 5px;">
+                    <div class="progress-bar" role="progressbar" style="width: ${percentage}%"></div>
+                </div>
+            `;
+        });
+        html += '</div>';
+        
+        chartDiv.innerHTML = html;
+    }
+    
+    // Utility functions
+    function showAlert(message, type = 'info') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.card-body').prepend(alertDiv);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+    
+    function viewUploadDetails(batchId) {
+        alert(`Viewing details for batch: ${batchId}\n\nFeature coming soon!`);
+        // window.location.href = `/emerchant/details/${batchId}`;
+    }
+    
+    function downloadReport(batchId) {
+        alert(`Downloading report for batch: ${batchId}\n\nFeature coming soon!`);
+        // window.location.href = `/api/emerchant/report/${batchId}`;
+    }
+    
+    function viewUpload(uploadId) {
+        alert(`Viewing upload: ${uploadId}\n\nFeature coming soon!`);
+    }
+    
+    function deleteUpload(uploadId) {
+        if (confirm('Are you sure you want to delete this upload?')) {
+            alert(`Deleting upload: ${uploadId}\n\nFeature coming soon!`);
+            // Implement delete API call here
+        }
+    }
+    
+    // Load data on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadUploadHistory();
+        refreshStats();
+        
+        // Auto-generate batch ID if empty
+        document.getElementById('batchId').addEventListener('focus', function() {
+            if (!this.value) {
+                const date = new Date();
+                const batchId = `EMERCH_${date.getFullYear()}${(date.getMonth()+1).toString().padStart(2,'0')}${date.getDate().toString().padStart(2,'0')}_${Math.random().toString(36).substr(2, 5).toUpperCase()}`;
+                this.value = batchId;
+            }
+        });
+    });
+</script>
+
+<style>
+    .merchant-distribution .progress-bar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    .alert h5 {
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-check {
+        margin-bottom: 0.5rem;
+    }
+    
+    .table th {
+        font-weight: 600;
+        background-color: #f8f9fa;
+    }
+    
+    .badge {
+        font-size: 0.8em;
+        padding: 0.3em 0.6em;
+    }
+</style>
+{% endblock %}
